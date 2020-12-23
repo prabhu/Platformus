@@ -1,0 +1,27 @@
+pool:
+  vmImage: 'windows-latest'
+
+steps:
+    
+- task: DotNetCoreCLI@2
+  displayName: dotnet restore
+  inputs:
+    command: 'restore'
+    projects: '$(Build.SourcesDirectory)\Platformus.sln'
+        
+- task: PowerShell@2
+  displayName: Download ShiftLeft cli
+  inputs:
+    targetType: 'inline'
+    script: |
+      Invoke-WebRequest -Uri 'https://cdn.shiftleft.io/download/sl-latest-windows-x64.zip' -OutFile $(Agent.HomeDirectory)\sl.zip
+      Expand-Archive -Path $(Agent.HomeDirectory)\sl.zip -DestinationPath $(Agent.HomeDirectory)\
+
+- task: CmdLine@2
+  displayName: Analyze with NG SAST
+  inputs:
+    script: |
+      $(Agent.HomeDirectory)\sl.exe analyze --verbose --force --wait --app platformus-az --tag branch=$(Build.SourceBranchName) --csharp --dotnet-core --sca --cpg Platformus.sln -- --ignore-tests
+    workingDirectory: '$(Build.SourcesDirectory)'
+  env:
+    SHIFTLEFT_ACCESS_TOKEN: $(SHIFTLEFT_ACCESS_TOKEN)
